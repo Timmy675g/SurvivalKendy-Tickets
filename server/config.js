@@ -7,6 +7,12 @@ const numberFromEnv = (name, fallback) => {
   return Number.isFinite(value) ? value : fallback;
 };
 
+const booleanFromEnv = (name, fallback = false) => {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+};
+
 export const config = {
   env: process.env.NODE_ENV || "development",
   frontendPort: numberFromEnv("FRONTEND_PORT", 5006),
@@ -16,10 +22,15 @@ export const config = {
   adminUsername: process.env.ADMIN_USERNAME || "",
   adminPassword: process.env.ADMIN_PASSWORD || "",
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || "",
+  workerAiUrl: process.env.WORKER_AI_URL || "",
+  workerSecret: process.env.WORKER_SECRET || "",
   datadogApiKey: process.env.DATADOG_API_KEY || "",
   datadogAppKey: process.env.DATADOG_APP_KEY || "",
   datadogOncallTeam: process.env.DATADOG_ONCALL_TEAM || "",
-  datadogSite: process.env.DATADOG_SITE || "datadoghq.com",
+  datadogSite: process.env.DATADOG_SITE || "us5.datadoghq.com",
+  datadogWorkflowWebhookUrl: process.env.DATADOG_WORKFLOW_WEBHOOK_URL || "",
+  datadogNotificationMode: process.env.DATADOG_NOTIFICATION_MODE || "direct",
+  datadogNotificationDebug: booleanFromEnv("DATADOG_NOTIFICATION_DEBUG"),
   db: {
     host: process.env.DB_HOST || "localhost",
     port: numberFromEnv("DB_PORT", 3306),

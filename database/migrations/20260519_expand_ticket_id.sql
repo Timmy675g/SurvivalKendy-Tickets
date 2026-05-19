@@ -1,0 +1,2 @@
+ALTER TABLE tickets
+  MODIFY ticket_id VARCHAR(64) NOT NULL;

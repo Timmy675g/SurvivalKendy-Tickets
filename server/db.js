@@ -4,23 +4,41 @@ import { config } from "./config.js";
 
 export const pool = mysql.createPool(config.db);
 
-export async function createTicket(ticket) {
+export async function createTicket(ticket, classification) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const [result] = await connection.execute(
       `INSERT INTO tickets
-        (ticket_id, minecraft_username, title, category, priority, description, evidence_link)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (
+          ticket_id,
+          minecraft_username,
+          title,
+          category,
+          priority,
+          user_impact,
+          user_urgency,
+          ai_severity,
+          ai_confidence,
+          ai_reason,
+          description,
+          evidence_link
+        )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         `PENDING-${crypto.randomUUID()}`,
-        ticket.minecraftUsername,
+        ticket.minecraft_username,
         ticket.title,
         ticket.category,
-        ticket.priority,
+        classification.severity,
+        ticket.user_impact,
+        ticket.user_urgency,
+        classification.severity,
+        classification.confidence,
+        classification.reason,
         ticket.description,
-        ticket.evidenceLink || null
+        ticket.evidence_link || null
       ]
     );
 
@@ -44,11 +62,16 @@ export async function listTickets(filters) {
   const clauses = [];
   const params = [];
 
-  for (const key of ["status", "priority", "category"]) {
+  for (const key of ["status", "category"]) {
     if (filters[key] && filters[key] !== "All") {
       clauses.push(`${key} = ?`);
       params.push(filters[key]);
     }
+  }
+
+  if (filters.priority && filters.priority !== "All") {
+    clauses.push("COALESCE(admin_priority_override, ai_severity, priority) = ?");
+    params.push(filters.priority);
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -81,6 +104,17 @@ export async function getTicketById(ticketId) {
 
 export async function updateTicketStatus(ticketId, status) {
   const [result] = await pool.execute("UPDATE tickets SET status = ? WHERE ticket_id = ?", [status, ticketId]);
+  return result.affectedRows > 0;
+}
+
+export async function updateTicketPriorityOverride(ticketId, priority) {
+  const [result] = await pool.execute(
+    `UPDATE tickets
+     SET admin_priority_override = ?,
+         priority = COALESCE(?, ai_severity, priority)
+     WHERE ticket_id = ?`,
+    [priority || null, priority || null, ticketId]
+  );
   return result.affectedRows > 0;
 }
 

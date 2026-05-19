@@ -1,0 +1,6 @@
+name = "survivalkendy-ticket-classifier"
+main = "src/index.js"
+compatibility_date = "2026-05-19"
+
+[ai]
+binding = "AI"

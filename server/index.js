@@ -4,10 +4,26 @@ import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { classifyTicketSeverity } from "./classifier.js";
 import { config, isProduction } from "./config.js";
-import { addAdminNote, createTicket, getTicketById, listTickets, updateTicketStatus } from "./db.js";
+import {
+  addAdminNote,
+  createTicket,
+  getTicketById,
+  listTickets,
+  updateTicketPriorityOverride,
+  updateTicketStatus
+} from "./db.js";
 import { sendTicketNotifications } from "./notifications.js";
-import { filterSchema, loginSchema, noteSchema, publicTicket, statusUpdateSchema, ticketSchema } from "./validation.js";
+import {
+  filterSchema,
+  loginSchema,
+  noteSchema,
+  priorityOverrideSchema,
+  publicTicket,
+  statusUpdateSchema,
+  ticketSchema
+} from "./validation.js";
 
 const app = express();
 
@@ -78,7 +94,8 @@ app.post("/api/tickets", ticketLimiter, async (req, res, next) => {
       return res.status(204).end();
     }
 
-    const ticket = await createTicket(parsed.data);
+    const classification = await classifyTicketSeverity(parsed.data);
+    const ticket = await createTicket(parsed.data, classification);
     sendTicketNotifications(ticket).catch((error) => console.error("Notification dispatch failed:", error.message));
 
     return res.status(201).json({ ticket: publicTicket(ticket) });
@@ -152,6 +169,21 @@ app.patch("/api/admin/tickets/:ticketId/status", requireAdmin, async (req, res, 
   }
 });
 
+app.patch("/api/admin/tickets/:ticketId/priority", requireAdmin, async (req, res, next) => {
+  try {
+    const parsed = priorityOverrideSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid priority override." });
+    }
+
+    const updated = await updateTicketPriorityOverride(req.params.ticketId, parsed.data.priority || null);
+    if (!updated) return res.status(404).json({ error: "Ticket not found." });
+    return res.json({ ok: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post("/api/admin/tickets/:ticketId/notes", requireAdmin, async (req, res, next) => {
   try {
     const parsed = noteSchema.safeParse(req.body);
@@ -168,6 +200,7 @@ app.post("/api/admin/tickets/:ticketId/notes", requireAdmin, async (req, res, ne
 });
 
 app.use((error, _req, res, _next) => {
+  void _next;
   console.error(error);
   res.status(500).json({
     error: "Something went wrong.",
