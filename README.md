@@ -1,6 +1,10 @@
-# SurvivalKendy Tickets
+# SurvivalKendy Tickets Archive
 
-Production-ready MVP support portal for the SurvivalKendy Minecraft server, intended for `tickets.survivalkendy.systems`.
+Archived support portal for the SurvivalKendy Minecraft server.
+
+This project is no longer an active ticketing service. Public ticket submission, admin ticket operations, Cloudflare
+Worker AI classification, Discord notifications, and Datadog paging are disabled. The repository remains available for
+historical reference only.
 
 ## Stack
 
@@ -47,6 +51,8 @@ Defaults:
 
 Both ports are configurable with `FRONTEND_PORT` and `BACKEND_PORT`.
 
+The backend keeps `/api/health` available for deployment checks. All other `/api` routes return `410 Gone` in archive mode.
+
 ## Production
 
 Build and run:
@@ -65,7 +71,8 @@ pm2 start "npm run preview" --name survivalkendy-tickets-web
 pm2 save
 ```
 
-Set `NODE_ENV=production`, `FRONTEND_ORIGIN=https://tickets.survivalkendy.systems`, secure admin credentials, and a long `SESSION_SECRET` in the PM2 environment.
+Set `NODE_ENV=production` and `FRONTEND_ORIGIN=https://tickets.survivalkendy.systems` if hosting the archive. Ticket
+creation, admin actions, Worker classification, and notifications remain disabled by the backend.
 
 ## NGINX
 
@@ -89,7 +96,7 @@ Required backend variables:
 - `ADMIN_PASSWORD`
 - `SESSION_SECRET`
 
-Optional notifications:
+Retired notification variables:
 
 - `DISCORD_WEBHOOK_URL`
 - `WORKER_AI_URL`
@@ -102,19 +109,10 @@ Optional notifications:
 - `DATADOG_NOTIFICATION_MODE`
 - `DATADOG_NOTIFICATION_DEBUG`
 
-`DATADOG_SITE` accepts common Datadog sites such as `datadoghq.com`, `us3.datadoghq.com`, `us5.datadoghq.com`, `datadoghq.eu`, `ap1.datadoghq.com`, and `ap2.datadoghq.com`. Datadog On-Call Paging URLs are built from this value; for `us5.datadoghq.com`, paging uses `https://navy.oncall.datadoghq.com/api/v2/on-call/pages`.
+These variables are retained in `.env.example` for historical context, but the archive backend does not invoke
+Cloudflare Worker, Discord, Datadog On-Call, or Datadog Workflow notification paths.
 
-`DATADOG_NOTIFICATION_MODE` defaults to `direct`, which uses the On-Call Paging API and requires `DATADOG_API_KEY`, `DATADOG_APP_KEY`, and `DATADOG_ONCALL_TEAM`. Set it to `workflow` to send Critical ticket details to `DATADOG_WORKFLOW_WEBHOOK_URL` instead.
-
-If `DATADOG_WORKFLOW_WEBHOOK_URL` is a Datadog Workflow Automation API endpoint such as `https://api.datadoghq.com/api/v2/workflows/{workflow_id}/instances`, the backend sends `DD-API-KEY` and `DD-APPLICATION-KEY` and wraps the ticket details in `meta.payload`, as required by Datadog's execute workflow API. Plain webhook URLs receive the ticket details as a flat JSON payload.
-
-The Datadog application key used for paging must be allowed to page On-Call targets. In Datadog RBAC this permission is `on_call_page`.
-
-`DATADOG_ONCALL_TEAM` should be the raw Datadog team handle, for example `survivalkendy-pagers-team`. If it is accidentally configured as `@oncall-survivalkendy-pagers-team`, the backend strips the mention prefix before sending `target.identifier`.
-
-Set `DATADOG_NOTIFICATION_DEBUG=true` temporarily to log sanitized request URLs, payloads, response statuses, and response bodies while diagnosing paging failures. Do not leave it enabled longer than needed.
-
-Example AI and paging variables:
+Historical AI and paging variables:
 
 ```env
 WORKER_AI_URL=
@@ -128,11 +126,11 @@ DATADOG_NOTIFICATION_MODE=direct
 DATADOG_NOTIFICATION_DEBUG=false
 ```
 
-If the Worker call fails or is not configured, the backend stores AI severity as `Medium`. User-provided impact and urgency never trigger Datadog directly.
+Archive mode prevents new ticket creation before classification or notification logic can run.
 
 ## Cloudflare Worker
 
-Worker code lives in `worker/`.
+Worker code lives in `worker/` for reference only. The archive backend does not call the Worker.
 
 ```bash
 cd worker
@@ -150,31 +148,20 @@ The Worker uses the Workers AI binding:
 binding = "AI"
 ```
 
-After deploy, set `WORKER_AI_URL` in the backend `.env` to the Worker `/classify` endpoint and set backend `WORKER_SECRET` to the same secret stored with `wrangler secret put WORKER_SECRET`.
+Worker deployment is not required for the archived site.
 
 ## Security Notes
 
-- Ticket submissions are validated with Zod and rate limited.
+- Ticket submission and admin mutation routes return `410 Gone`.
 - Helmet is enabled for baseline HTTP hardening.
 - CORS is restricted to `FRONTEND_ORIGIN` and uses credentials only for admin APIs.
 - Admin sessions are HTTP-only cookies and become `secure` when `NODE_ENV=production`.
 - Cloudflare Worker, Datadog, and Discord secrets are never exposed to the frontend.
-- The Worker requires `X-SURVIVALKENDY-WORKER-SECRET` from the Express backend.
+- The archive backend does not call external classification or notification services.
 - Production errors do not expose stack traces or raw exception details.
 
 ## API
 
-Public:
-
-- `POST /api/tickets`
-
-Admin:
-
-- `POST /api/admin/login`
-- `POST /api/admin/logout`
-- `GET /api/admin/session`
-- `GET /api/admin/tickets`
-- `GET /api/admin/tickets/:ticketId`
-- `PATCH /api/admin/tickets/:ticketId/status`
-- `PATCH /api/admin/tickets/:ticketId/priority`
-- `POST /api/admin/tickets/:ticketId/notes`
+- `GET /api/health` returns service health with `archived: true`.
+- All other `/api` routes return `410 Gone`.
+- No public submission, admin, Worker, Discord, or Datadog endpoints are active in archive mode.

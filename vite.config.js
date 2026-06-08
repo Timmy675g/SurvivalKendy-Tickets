@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const backendPort = env.BACKEND_PORT || "5007";
 
   return {
+    base: "./",
     plugins: [react(), cloudflare()],
     resolve: {
       alias: {
